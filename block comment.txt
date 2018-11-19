@@ -6,7 +6,7 @@
 程式碼如下：
 uint256 private money ;
 uint256 private time ;
-
+---------------------------------------------------------------------------------------------------------------
 事件宣告：
 此 Bank 合約宣告三個型態為 事件，其中：
 * CdepositEvent：進行定存存款時觸發，會回傳四個參數
@@ -27,7 +27,7 @@ uint256 private time ;
 event CdepositEvent(address indexed from, uint money,uint time, uint256 timestamp);
 event EndcontEvent(address indexed from, uint profit, uint256 timestamp);
 event EarlyendEvent(address indexed from, uint profit, uint256 timestamp);
-
+---------------------------------------------------------------------------------------------------------------
 函式宣告：
 前端會呼叫此合約新增的三個函式來進行定存的存款以及提款：
 1. cdeposit：進行定存時使用
@@ -64,7 +64,6 @@ time =0;
 return(profit);
 emit EndcontEvent(msg.sender,profit, now);
 }
-
 
 3. earlyendcont：當提前解約時使用
 * 使用者所輸入的解約期數會存入型態為 uint256 的參數 time2end 後傳入函式中 
