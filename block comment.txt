@@ -1,0 +1,87 @@
+變數宣告：
+此 Bank 合約宣告兩個型態為 uint256 的變數，並將可見度設成 private 讓非此 Bank 合約的程式無法使用，其中：
+* money：用來表示定存的以太幣數量
+* time：用來表示定存的週期
+
+程式碼如下：
+uint256 private money ;
+uint256 private time ;
+
+事件宣告：
+此 Bank 合約宣告三個型態為 事件，其中：
+* CdepositEvent：進行定存存款時觸發，會回傳四個參數
+    * ​from：型態為 address ，用來記錄執行合約的以太坊帳號，並加上 indexed 關鍵字讓 transaction receipt 更好找到此 event。
+    * money：型態為 uint ，用來記錄使用者輸入的定存金額。
+    * time：型態為 uint ，用來記錄使用者輸入的定存週期。
+    * timestamp：型態為 uint256 ，用來記錄觸發 event 的時間。
+* EndcontEvent：合約期滿時觸發，會回傳三個參數
+    * from：型態為 address ，用來記錄執行合約的以太坊帳號，並加上 indexed 關鍵字讓 transaction receipt 更好找到此 event。
+    * profit：型態為 uint，用來記錄本金＋利息的總額。
+    * timestamp：型態為 uint256 ，用來記錄觸發 event 的時間。
+* ​​EarlyendEvent：提早解約時觸發，會回傳三個參數
+    * from：型態為 address ，用來記錄執行合約的以太坊帳號，並加上 indexed 關鍵字讓 transaction receipt 更好找到此 event。
+    * profit：型態為 uint，用來記錄本金＋利息的總額。
+    * timestamp：型態為 uint256 ，用來記錄觸發 event 的時間。
+
+程式碼如下：
+event CdepositEvent(address indexed from, uint money,uint time, uint256 timestamp);
+event EndcontEvent(address indexed from, uint profit, uint256 timestamp);
+event EarlyendEvent(address indexed from, uint profit, uint256 timestamp);
+
+函式宣告：
+前端會呼叫此合約新增的三個函式來進行定存的存款以及提款：
+1. cdeposit：進行定存時使用
+* 使用者所輸入的期數會存入型態為 uint 的參數 y 後傳入函式中 
+* 此函式的可見度設成 public，讓前端程式能夠呼叫
+* 加入 payable 關鍵字讓以太坊帳戶能將以太幣轉入合約中
+
+此函式首先會檢查使用者輸入的定存金額不可為 0 以及週期不可為 0，若違反條件將拋出異常提醒使用者他的上一筆定存合約還沒完成，要先完成後才能進行下一筆。若無異常，則會將紀錄使用者存入此 Bank 合約金額的 balance 變數的餘額加上此次存入的金額以供前端檢視帳戶狀態中的餘額，並且將 money 設成本次存入的金額以及將 time 設成本次定存的週期以供之後提款時計算金額使用。最後觸發 CdepositEvent 事件讓前端的 listener 監聽到事件回傳的 帳戶帳號 , 金額 , 週期 , 觸發事件時間。
+
+程式碼如下：
+function cdeposit(uint y) public payable{
+require(money ==0 && time == 0 ,"contract exist");
+balance[msg.sender] += msg.value;
+money = msg.value;
+time = y;
+emit CdepositEvent(msg.sender,money,time, now);
+}
+
+2. cendcontract：當期滿提款時使用
+* 此函式的可見度設成 public，讓前端程式能夠呼叫
+* 此函式會回傳一個型態為 uint 的參數回前端
+
+此函式首先會宣告名為 weiValue 的變數儲存以 wei 表示的定存金額，之後檢查使用者存在此 Bank 合約中的以太幣不可比要存回使用者帳戶的以太幣金額多，若無異常，會將使用者定存的本金存回使用者帳戶（不可轉出本金＋利息，因為當初使用者存入合約中的以太幣並沒有這麼多），並將 balance 中紀錄的金額扣掉此次存使用者帳戶的金額。接下來宣告一個名為 profit  的變數儲存本金＋利息後將 money 及 time 變數歸 0 以供下次進行定存使用。完成後會回傳本次合約期滿提款的本金＋利息回前端以供使用者檢視，並觸發 EndcontEvent 事件讓前端的 listener 監聽到事件回傳的 帳戶帳號 , 金額 , 週期 , 觸發事件時間。
+
+程式碼如下：
+function cendcontract() public returns(uint){
+uint256 weiValue = money * 1 wei;
+require(balance[msg.sender] >= weiValue , "your balances are not enough");
+msg.sender.transfer(weiValue);
+balance[msg.sender] -= weiValue;
+uint profit = weiValue + weiValue*time/100;
+money = 0;
+time =0;
+return(profit);
+emit EndcontEvent(msg.sender,profit, now);
+}
+
+
+3. earlyendcont：當提前解約時使用
+* 使用者所輸入的解約期數會存入型態為 uint256 的參數 time2end 後傳入函式中 
+* 此函式的可見度設成 public，讓前端程式能夠呼叫
+* 此函式會回傳一個型態為 uint 的參數回前端
+
+此函式首先會宣告名為 weiValue 的變數儲存以 wei 表示的定存金額，之後檢查使用者存在此 Bank 合約中的以太幣不可比要存回使用者帳戶的以太幣金額多，若無異常，會將使用者定存的本金存回使用者帳戶（不可轉出本金＋利息，因為當初使用者存入合約中的以太幣並沒有這麼多），並將 balance 中紀錄的金額扣掉此次存使用者帳戶的金額。接下來宣告一個名為 profit  的變數儲存本金＋利息後將 money 及 time 變數歸 0 以供下次進行定存使用。完成後會回傳本次合約期滿提款的本金＋利息回前端以供使用者檢視，並觸發 EndcontEvent 事件讓前端的 listener 監聽到事件回傳的 帳戶帳號 , 金額 , 週期 , 觸發事件時間。
+
+程式碼如下：
+function earlyendcont(uint256 time2end) public returns(uint){
+uint256 weiValue = money * 1 wei;
+require(balance[msg.sender] >= weiValue , "your balances are not enough");
+msg.sender.transfer(weiValue);
+balance[msg.sender] -= weiValue;
+uint profit = weiValue + weiValue*time2end/100;
+money = 0;
+time = 0;
+return(profit);
+emit EarlyendEvent(msg.sender, profit, now);
+}
